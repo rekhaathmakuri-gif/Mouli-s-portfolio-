@@ -1,0 +1,60 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Transport Booking</title>
+<style>
+*{box-sizing:border-box;font-family:system-ui,sans-serif}
+body{margin:0;min-height:100vh;color:#fff;
+ background:linear-gradient(rgba(10,20,50,.75),rgba(10,20,50,.85)),
+ url('https://images.unsplash.com/photo-1519003722824-194d4455a60c?w=1200') center/cover #0a1432}
+.card{max-width:420px;margin:24px auto;padding:20px;border-radius:16px;
+ background:rgba(255,255,255,.12);backdrop-filter:blur(10px)}
+input,select,button{width:100%;padding:12px;margin:6px 0;border-radius:10px;border:0;font-size:16px}
+button{background:#ffb703;font-weight:700;cursor:pointer}
+#map{height:220px;border-radius:12px;margin-top:10px}
+.hide{display:none}
+</style></head><body>
+<div class="card" id="login">
+ <h2>🚚 Login</h2>
+ <input id="email" placeholder="Email"><input id="pw" type="password" placeholder="Password">
+ <button onclick="login()">Login</button>
+</div>
+<div class="card hide" id="book">
+ <h2>Book a ride / delivery</h2>
+ <select id="vehicle"><option>Bike</option><option>Auto</option><option>Car</option><option>Truck</option></select>
+ <input id="pickup" placeholder="Pickup"><input id="dropoff" placeholder="Drop-off">
+ <button onclick="book()">Book now</button>
+ <p id="msg"></p>
+ <button onclick="share()">📍 Share my live location (sender)</button>
+ <button onclick="track()">👀 Track (receiver)</button>
+ <div id="map"></div>
+</div>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+let bid=null,map,marker;
+function login(){ // demo only: replace with an /api/login servlet + hashed passwords
+ document.getElementById('login').classList.add('hide');
+ document.getElementById('book').classList.remove('hide');
+ map=L.map('map').setView([20.59,78.96],5);
+ L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+}
+async function book(){
+ const b=new URLSearchParams({vehicle:vehicle.value,pickup:pickup.value,dropoff:dropoff.value});
+ const r=await (await fetch('api/book',{method:'POST',body:b})).json();
+ bid=r.bookingId; msg.textContent='Booked! ID: '+bid;
+}
+function share(){ // SENDER: browser GPS -> server
+ navigator.geolocation.watchPosition(p=>{
+  fetch('api/location',{method:'POST',body:new URLSearchParams(
+   {id:bid,lat:p.coords.latitude,lng:p.coords.longitude})});
+ },e=>alert(e.message),{enableHighAccuracy:true});
+}
+function track(){ // RECEIVER: poll server every 5s
+ setInterval(async()=>{
+  const l=await (await fetch('api/location?id='+bid)).json();
+  if(!l.lat)return; const ll=[l.lat,l.lng];
+  marker?marker.setLatLng(ll):marker=L.marker(ll).addTo(map);
+  map.setView(ll,15);
+ },5000);
+}
+</script></body></html>
